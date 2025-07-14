@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haruon.groupware.message.mapper.MsgMapper">
+
+	<!-- reader, sender 둘 다 삭제되어있다면 msg, msg_file 테이블에서 해당 메세지번호 데이터 삭제
+	<delete id="deleteMsgFile">
+		DELETE FROM msg_file
+		 WHERE msg_no NOT IN (SELECT DISTINCT msg_no FROM msg_reader) 
+	  	   AND msg_no NOT IN (SELECT DISTINCT msg_no FROM msg_sender);
+	</delete>
+	<delete id="deleteMsg">
+		DELETE FROM msg
+		 WHERE msg_no NOT IN (SELECT DISTINCT msg_no FROM msg_reader) 
+	  	   AND msg_no NOT IN (SELECT DISTINCT msg_no FROM msg_sender);
+	</delete> -->
+	
+	<!-- 임시저장 쪽지 발송 시 수정 -->
+	<update id="modifyMsg" parameterType="com.haruon.groupware.message.dto.MsgDto">
+		UPDATE msg
+		SET title = #{title}, content = #{content}
+		WHERE msg_no = #{msgNo}
+	</update>
+	<update id="modifySenderMsg" parameterType="com.haruon.groupware.message.dto.MsgDto">
+		UPDATE msg_sender
+		SET emp_no = #{empNoS}
+			, state = #{stateS}
+			, send_date = now()
+		WHERE msg_no = #{msgNo}
+	</update>
+	<update id="modifyReaderMsg" parameterType="com.haruon.groupware.message.dto.MsgDto">
+		UPDATE msg_reader
+		SET emp_no = #{empNoR}
+		WHERE msg_no = #{msgNo}
+	</update>
+	
+	<!-- 쪽지 발송/임시저장 -->
+	<insert id="insertMsg" parameterType="com.haruon.groupware.message.dto.MsgDto"
+			useGeneratedKeys="true" keyProperty="msgNo">
+		INSERT INTO msg (
+			title, content
+		) VALUES (
+			#{title}, #{content}
+		)
+	</insert>
+	<insert id="insertMsgFile" parameterType="com.haruon.groupware.message.entity.MsgFile">
+		INSERT INTO msg_file (
+			  msg_no
+			, origin_name 
+			, file_name
+			, ext
+			, kind
+			, size
+		) VALUES (
+			#{msgNo}, #{originName}, #{fileName}, #{ext}, #{kind}, #{size}
+		)
+	</insert>
+	<insert id="insertSenderMsg" parameterType="com.haruon.groupware.message.dto.MsgDto">
+		INSERT INTO msg_sender (
+			  msg_no
+			, emp_no
+			, state
+			, send_date
+		) VALUES (
+			#{msgNo}, #{empNoS}, #{stateS}, 
+	        <choose>
+	            <when test="stateS == 'E01'">null</when>
+	            <when test="stateS != 'E01'">now()</when>
+	        </choose>
+		)
+	</insert>
+	<insert id="insertReaderMsg" parameterType="com.haruon.groupware.message.dto.MsgDto">
+		INSERT INTO msg_reader (
+			  msg_no
+			, emp_no
+		) VALUES (
+			#{msgNo}, #{empNoR}
+		)
+	</insert>
+	<!-- update -->
+	<!-- 쪽지 발송/임시저장 끝 -->
+	
+	<!-- 쪽지 파일 -->
+	<select id="getMsgFileList" parameterType="Integer" resultType="com.haruon.groupware.message.entity.MsgFile">
+		SELECT
+			   msg_no
+			 , origin_name originName
+			 , file_name fileName 
+			 , ext 
+			 , kind
+			 , size
+			 , create_date createDate
+		  FROM msg_file
+		 WHERE msg_no = #{msgNo}
+	</select>
+	
+	<!-- 받은 쪽지 -->
+	<select id="getReadersMsg" parameterType="Integer" resultType="com.haruon.groupware.message.dto.MsgReaderDto">
+		SELECT mr.msg_no msgNo
+			  , mr.msgr_no msgrNo
+			  , mr.emp_no empNoR
+			  , er.ename enameR
+			  , er.email emailR
+			  , ccr.descript descriptR
+			  , mr.state stateR
+			  , ccmr.descript state
+			  , mr.read_date readDate
+			  , ms.emp_no empNoS
+			  , es.ename enameS
+			  , es.email emailS
+			  , ccs.descript descriptS
+			  , m.title title
+			  , m.content content
+			  , ms.send_date sendDate
+		     , esf.file_name fileNameE
+		     , esf.ext extE
+		     , mf.origin_name originNameM
+		     , mf.file_name fileNameM
+		     , mf.ext extM
+		FROM msg_reader mr
+		JOIN emp er ON mr.emp_no = er.emp_no
+		JOIN common_code ccr ON er.location = ccr.common_code
+		JOIN common_code ccmr ON mr.state = ccmr.common_code
+		JOIN msg m ON mr.msg_no = m.msg_no
+		JOIN msg_sender ms ON mr.msg_no = ms.msg_no
+		JOIN emp es ON ms.emp_no = es.emp_no
+		JOIN common_code ccs ON es.location = ccs.common_code
+		LEFT OUTER JOIN emp_file esf ON es.emp_no = esf.emp_no
+		LEFT OUTER JOIN msg_file mf ON ms.msg_no = mf.msg_no
+		WHERE mr.emp_no = #{empNo} AND (ms.state = 'E02' OR ms.state = 'E03') AND (mr.state = 'D01' OR mr.state = 'D02')
+	</select>
+	<!-- 읽음 상태변경 -->
+	<update id="modifyReadState" parameterType="Integer">
+		UPDATE msg_reader
+		SET state = 'D02', read_date = now()
+		WHERE msg_no = #{msgNo}
+	</update>
+	<!-- 휴지통 이동 -->
+	<update id="insertTrashMsg" parameterType="Integer">
+		UPDATE msg_reader
+		SET state = "D03"
+		WHERE msg_no = #{msgNo}
+	</update>
+	<!-- 휴지통 -> 받은쪽지 복원 -->
+	<update id="backMsg" parameterType="Integer">
+		UPDATE msg_reader
+		SET state = "D01"
+		WHERE msg_no = #{msgNo}
+	</update>
+	<!-- 휴지통 비우기 -->
+	<update id="deleteEmptyTrash" parameterType="Integer">
+		UPDATE msg_reader
+		SET state = 'D04'
+		WHERE emp_no = #{empNo} AND state = 'D03'
+	</update>
+	<!-- 영구 삭제 -->
+	<update id="deleteMsgR" parameterType="Integer">
+		UPDATE msg_reader
+		SET state = 'D04'
+		WHERE msg_no = #{msgNo}
+	</update>	
+	<update id="deleteMsgS" parameterType="Integer">
+		UPDATE msg_sender
+		SET state = 'E03'
+		WHERE msg_no = #{msgNo}
+	</update>	
+
+	<!-- 받은 쪽지 휴지통 -->
+	<select id="getTrashsMsg" parameterType="Integer" resultType="com.haruon.groupware.message.dto.MsgReaderDto">
+		SELECT mr.msg_no msgNo
+			  , mr.msgr_no msgrNo
+			  , mr.emp_no empNoR
+			  , er.ename enameR
+			  , er.email emailR
+			  , ccr.descript descriptR
+			  , mr.state stateR
+			  , mr.read_date readDate
+			  , ms.emp_no empNoS
+			  , es.ename enameS
+			  , es.email emailS
+			  , ccs.descript descriptS
+			  , m.title title
+			  , m.content content
+			  , ms.send_date sendDate
+		     , esf.file_name fileNameE
+		     , esf.ext extE
+		     , mf.origin_name originNameM
+		     , mf.file_name fileNameM
+		     , mf.ext extM
+		FROM msg_reader mr
+		JOIN emp er ON mr.emp_no = er.emp_no
+		JOIN common_code ccr ON er.location = ccr.common_code
+		JOIN msg m ON mr.msg_no = m.msg_no
+		JOIN msg_sender ms ON mr.msg_no = ms.msg_no
+		JOIN emp es ON ms.emp_no = es.emp_no
+		JOIN common_code ccs ON es.location = ccs.common_code
+		LEFT OUTER JOIN emp_file esf ON es.emp_no = esf.emp_no
+		LEFT OUTER JOIN msg_file mf ON ms.msg_no = mf.msg_no
+		WHERE mr.emp_no = #{empNo} AND mr.state = 'D03' AND (ms.state = 'E02' OR ms.state = 'E03') 
+	</select>
+
+	<!-- 보낸 쪽지 -->
+	<select id="getSendersMsg" parameterType="Integer" resultType="com.haruon.groupware.message.dto.MsgSenderDto">
+		SELECT m.msg_no msgNo
+			 , ms.msgs_no msgsNo
+		     , es.ename enameS
+		     , ccs.descript descriptS
+		     , es.email emailS
+		     , er.ename enameR
+		     , ccr.descript descriptR
+		     , er.email emailR
+		     , ms.send_date sendDate
+		     , m.title title
+		     , m.content content
+		     , erf.file_name fileNameE
+		     , erf.ext extE
+		     , mf.origin_name originNameM
+		     , mf.file_name fileNameM
+		     , mf.ext extM
+		  FROM msg_sender ms
+		  JOIN emp es ON ms.emp_no = es.emp_no
+		  JOIN msg m ON ms.msg_no = m.msg_no
+		  JOIN msg_reader mr ON ms.msg_no = mr.msg_no
+		  JOIN emp er ON mr.emp_no = er.emp_no
+		  LEFT OUTER JOIN emp_file erf ON er.emp_no = erf.emp_no
+		  LEFT OUTER JOIN msg_file mf ON ms.msg_no = mf.msg_no
+		  JOIN common_code ccr ON er.location = ccr.common_code
+		  JOIN common_code ccs ON es.location = ccs.common_code
+	     WHERE ms.emp_no = #{empNo} AND ms.state = 'E02'
+	</select>
+	
+	<!-- 임시 보관함 -->
+	<select id="getTemporaryMsgList" parameterType="Integer" resultType="com.haruon.groupware.message.dto.MsgSenderDto">
+		SELECT DISTINCT
+			   m.msg_no msgNo
+			 , ms.msgs_no msgsNo
+			 , es.emp_no empNoS
+		     , es.ename enameS
+		     , ccs.descript descriptS
+		     , es.email emailS
+		     , er.emp_no empNoR
+		     , er.ename enameR
+		     , ccr.descript descriptR
+		     , er.email emailR
+		     , ms.send_date sendDate
+		     , m.title title
+		     , m.content content
+		     , erf.file_name fileNameE
+		     , erf.ext extE
+		     , mf.origin_name originNameM
+		     , mf.file_name fileNameM
+		     , mf.ext extM
+		  FROM msg_sender ms
+		  JOIN emp es ON ms.emp_no = es.emp_no
+		  JOIN msg m ON ms.msg_no = m.msg_no
+		  JOIN msg_reader mr ON ms.msg_no = mr.msg_no
+		  JOIN emp er ON mr.emp_no = er.emp_no
+		  LEFT OUTER JOIN emp_file erf ON er.emp_no = erf.emp_no
+		  LEFT OUTER JOIN msg_file mf ON ms.msg_no = mf.msg_no
+		  JOIN common_code ccr ON er.location = ccr.common_code
+		  JOIN common_code ccs ON es.location = ccs.common_code
+	     WHERE ms.emp_no = #{empNo} AND ms.state = 'E01'
+	</select>
+	
+	<select id="findUnreadMsgSum" parameterType="Integer" resultType="com.haruon.groupware.message.dto.MsgReaderListDto">
+		SELECT mr.emp_no readerNo
+		     , e.ename senderName
+			 , ef.file_name senderProfileName
+			 , ef.ext senderProfileExt
+			 , ms.msg_no msgNo
+			 , ms.send_date sendDate
+			 , msg.title title
+		  FROM msg_reader mr
+		 INNER JOIN msg_sender ms ON ms.msg_no = mr.msg_no
+		 INNER JOIN emp e ON ms.emp_no = e.emp_no
+		 INNER JOIN msg msg ON msg.msg_no = mr.msg_no
+		  LEFT OUTER JOIN emp_file ef ON ef.emp_no = ms.emp_no
+		 WHERE mr.emp_no = #{empNo}
+		   AND mr.state = 'D01'
+		   AND ms.send_date IS NOT NULL
+	  ORDER BY 6 ASC
+	</select>
+	
+	<select id="findUnreadMsgCnt" parameterType="Integer" resultType="Integer">
+		SELECT COUNT(*) unreadMsgCnt
+		  FROM msg_reader mr
+		 INNER JOIN msg_sender ms ON ms.msg_no = mr.msg_no
+		 INNER JOIN emp e ON ms.emp_no = e.emp_no
+		 LEFT OUTER JOIN emp_file ef ON ef.emp_no = ms.emp_no
+		 WHERE mr.emp_no = #{empNo}
+		   AND mr.state = 'D01'
+   		   AND ms.send_date IS NOT NULL
+	</select>
+	
+</mapper>

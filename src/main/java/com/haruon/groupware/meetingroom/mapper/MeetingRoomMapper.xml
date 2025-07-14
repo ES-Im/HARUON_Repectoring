@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="com.haruon.groupware.meetingroom.mapper.MeetingRoomMapper">
+	
+	<select id="meetingroomList" resultType="com.haruon.groupware.meetingroom.dto.MeetingRoomDto">
+  SELECT
+        m.mee_no  meeNo,
+        m.mname  mname,
+        m.capacity  capacity,
+        m.info  info,
+        m.avail_yn  availYn,
+        mf.file_name  fileName,
+        mf.ext  fileExt
+    FROM 
+        meetingroom m
+    LEFT JOIN 
+        meetingroom_file mf
+    ON 
+        m.mee_no = mf.mee_no
+    ORDER BY 
+        m.mee_no ASC;
+		
+	</select>
+<insert id="addMeetingroom" parameterType="com.haruon.groupware.meetingroom.entity.MeetingRoom" useGeneratedKeys="true" keyProperty="meeNo">
+    INSERT INTO meetingroom (
+        mname, 
+        capacity, 
+        info
+    ) VALUES (
+        #{mname},
+        #{capacity},  
+        #{info}
+    )
+</insert>
+<insert id="addMeetingroomFile" parameterType="com.haruon.groupware.meetingroom.entity.MeetingRoomFile">
+    INSERT INTO meetingroom_file (
+        mee_no,
+        original_name,
+        file_name,
+        kind,
+        size,
+        ext
+    ) VALUES (
+        #{meeNo},
+        #{originalName},
+        #{fileName},
+        #{kind},
+        #{size},
+        #{ext}
+    )
+</insert>
+
+<delete id="deleteMeetingroom" parameterType="Integer">
+DELETE FROM meetingroom
+WHERE mee_no = #{meeNo}
+</delete>
+
+<delete id="deleteMeetingroomFile" parameterType="Integer">
+    DELETE FROM meetingroom_file 
+    WHERE mee_no = #{meeNo}
+</delete>
+
+<update id="updateMeetingroom" parameterType="com.haruon.groupware.meetingroom.entity.MeetingRoom">
+    UPDATE meetingroom
+    <set>
+        <if test="mname != null">
+            mname = #{mname},
+        </if>
+        <if test="capacity != null">
+            capacity = #{capacity},
+        </if>
+        <if test="info != null">
+            info = #{info},
+        </if>
+        <if test="availYn != null">
+            avail_yn = #{availYn},
+        </if>
+        update_date = NOW()
+    </set>
+    WHERE mee_no = #{meeNo}
+</update>
+
+<select id="meetingroomOne" resultType="com.haruon.groupware.meetingroom.dto.MeetingRoomDto">
+	SELECT
+	    m.mee_no  meeNo,
+	    m.mname  mname,
+	    m.capacity  capacity,
+	    m.info  info,
+	    m.avail_yn  availYn,
+	    mf.file_name  fileName,
+	    mf.ext  fileExt
+	FROM 
+	    meetingroom m
+	LEFT JOIN 
+	    meetingroom_file mf
+	ON 
+	    m.mee_no = mf.mee_no
+	WHERE 
+	    m.mee_no = #{meeNo} 
+</select>
+
+<update id="updateMeetingroomFile" parameterType="com.haruon.groupware.meetingroom.entity.MeetingRoomFile">
+    UPDATE meetingroom_file
+    <set>
+        <if test="originalName != null">
+            original_name = #{originalName},
+        </if>
+        <if test="fileName != null">
+            file_name = #{fileName},
+        </if>
+        <if test="kind != null">
+            kind = #{kind},
+        </if>
+        <if test="size != null">
+            size = #{size},
+        </if>
+        <if test="ext != null">
+            ext = #{ext},
+        </if>
+    </set>
+    WHERE mee_no = #{meeNo}
+</update>
+<select id="findMeetingRoomFileByMeeNo" parameterType="Integer" resultType="com.haruon.groupware.meetingroom.entity.MeetingRoomFile">
+    	select
+				mee_no meeNo
+			,	original_name originalName
+			,	file_name fileName
+			,	ext
+			,	kind
+			,	size
+		from meetingroom_file
+		where mee_no = #{meeNo}
+</select>
+</mapper>

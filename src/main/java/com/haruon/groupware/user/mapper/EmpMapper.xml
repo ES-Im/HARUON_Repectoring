@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haruon.groupware.user.mapper.EmpMapper">
+	<!-- 사원 상세정보 -->
+	<select id="findByEmpInfo" parameterType="Integer" resultType="com.haruon.groupware.user.dto.ResponseEmpInfo">
+		select
+			   e.emp_no empNo
+			 , e.email email
+			 , e.dep_no depNo
+			 , (select dname
+			   from dept
+			   where dep_no = e.dep_no) dname
+			 , e.ename ename
+			 , (select descript
+			   from common_code
+			   where common_code = location) location
+			 , e.ext_num extNum
+			 , e.phone phone
+			 , e.address address
+			 , e.post_code postCode
+			 , case 
+			       when e.gender = 'F' then '여자'
+			       when e.gender = 'M' then '남자'
+			   end gender
+			 , e.birth birth
+			 , e.join_date joinDate
+			 , e.exit_date exitDate
+			 , f.file_name fileName
+			 , f.ext ext
+			 , sf.file_name signfileName
+			 , sf.ext signExt
+		  from emp e
+		  left join emp_file f
+			   on e.emp_no = f.emp_no
+		  left join sign_file sf
+			   on e.emp_no = sf.emp_no
+		 where e.emp_no = #{empNo}
+	</select>
+
+	<select id="findByEmp" parameterType="String" resultType="com.haruon.groupware.user.entity.EmpEntity" >
+		SELECT 	e.emp_no empNo
+			  ,	e.email email
+			  ,	e.emp_pw empPw
+			  ,	e.ename ename
+			  ,	(SELECT descript from common_code
+				  WHERE parent_code = (SELECT common_code FROM common_code
+					   					WHERE descript = 'emp_location')
+			        AND common_code = e.location) location
+			  ,	e.dep_no depNo
+			  ,	d.dname dname
+			  , (SELECT descript from common_code
+				  WHERE parent_code = (SELECT common_code FROM common_code
+					   					WHERE descript = 'emp_connection_status')
+			        AND common_code = e.connection_status) connectionStatus
+		   FROM emp e
+	 INNER JOIN dept d
+			 ON e.dep_no = d.dep_no
+		  WHERE email = #{email}
+		    AND exit_date IS NULL
+	</select>
+
+	<insert id="insertEmp" parameterType="com.haruon.groupware.user.dto.EmpDto" >
+		INSERT INTO emp (
+		ename
+		,emp_pw
+		,post_code
+		,email
+		,address
+		,phone
+		,dep_no
+		,gender
+		,birth
+		)VALUES(
+			#{ename},#{empPw}, #{postCode}, #{email}, #{address}, #{phone} ,#{depNo} ,#{gender} ,#{birth}
+		)
+	</insert>
+	
+	<update id="updateEmpPw" parameterType="com.haruon.groupware.user.dto.EmpDto">
+    UPDATE emp
+    SET emp_pw = #{empPw}
+    WHERE emp_no = #{empNo} AND email = #{email};
+	</update>
+	
+	<!-- 직원 리스트 정보 -->
+	<select id="empList" resultType="com.haruon.groupware.user.dto.EmpListDTO">
+	 	SELECT d.dname dname
+	 		 , cc.descript connectionStatus
+	 		 , cl.descript location
+	 		 , e.ename ename
+	 		 , e.emp_no empNo
+	 		 , ef.file_name fileName
+	 		 , ef.ext ext
+	      FROM emp e
+	INNER JOIN dept d ON e.dep_no = d.dep_no
+	INNER JOIN common_code cl ON cl.common_code = e.location AND cl.parent_code = (SELECT common_code FROM common_code WHERE descript = 'emp_location')
+	INNER JOIN common_code cc ON cc.common_code = e.connection_status AND cc.parent_code = (SELECT common_code FROM common_code WHERE descript = 'emp_connection_status')
+	LEFT outer JOIN emp_file ef ON e.emp_no = ef.emp_no
+	     WHERE e.exit_date IS NULL 
+	     ORDER BY 1,2,(case when cl.descript = "부서장" then 1
+					   when cl.descript = "팀장" then 2
+					   ELSE 3 END),4
+	</select>
+	
+	<!-- EMP : 퇴사하지 않은 모든 사원의 사원번호를 가져오기 -->
+	<select id="findAllEmp" resultType="com.haruon.groupware.user.entity.EmpEntity">
+		SELECT emp_no empNo , dep_no depNo
+			 , email	    , ename 
+			 , location     , join_date
+			 , total_leave  , used_leave
+		  FROM emp 
+		 WHERE exit_date IS NULL
+	</select>
+	
+	
+	
+	<!-- EMP : 가장 최근에 등록한 사원 -->
+	<select id="findNewEmp" resultType="com.haruon.groupware.user.entity.EmpEntity">
+		SELECT emp_no empNo, join_date joinDate FROM emp WHERE emp_no = (SELECT MAX(emp_no) FROM emp)
+	</select>
+	
+	<!-- 직원 목록 -->
+	<select id="selectEmpList" resultType="com.haruon.groupware.user.dto.EmpDto">
+		SELECT 	e.emp_no empNo
+			  ,	e.email email
+			  ,	e.emp_pw empPw
+			  ,	e.ename ename
+			  ,	(SELECT descript from common_code
+				  WHERE parent_code = (SELECT common_code FROM common_code
+					   					WHERE descript = 'emp_location')
+			        AND common_code = e.location) location
+			  ,	e.dep_no depNo
+			  ,	d.dname dname
+			  , e.connection_status connectionStatus
+			  , e.ext_num extNum
+			  , CONCAT(SUBSTRING(e.phone, 1, 3), '-', 
+		           SUBSTRING(e.phone, 4, 4), '-', 
+		           SUBSTRING(e.phone, 8)) phone
+		     , ef.file_name fileName
+		     , ef.ext ext
+		FROM emp e
+ 		INNER JOIN dept d ON e.dep_no = d.dep_no
+ 		LEFT OUTER JOIN emp_file ef ON ef.emp_no = e.emp_no
+		WHERE e.exit_date IS NULL
+	</select>
+	
+	<!-- 부서별 직원 정보 -->
+	<select id="selectEmpBydept" parameterType="Integer" resultType="Map">
+		SELECT
+			e.emp_no empNo
+			, e.dep_no depNo
+			, d.dname dname
+			, e.ename ename
+			, e.location location
+			, e.email email
+			, e.ext_num extNum
+		FROM emp e
+		INNER JOIN dept d
+			ON e.dep_no = d.dep_no
+		WHERE e.dep_no = #{depNo} AND e.exit_date IS NULL
+		ORDER BY e.location DESC, e.ename
+	</select>
+	
+	<!-- 웹소켓 세션의 URI 파싱된 id 유무 확인 ( 1 = true / 0 = false ) --> 
+	<select id="checkEmpNo" parameterType="String" resultType="Integer">
+		SELECT (CASE WHEN COUNT(emp_no) = 0 
+					 THEN 0 ELSE 1 
+				END) checkId 
+		  FROM emp 
+		 WHERE emp_no = #{idInURI}
+		   AND exit_date is NULL
+	</select>
+	
+
+</mapper>

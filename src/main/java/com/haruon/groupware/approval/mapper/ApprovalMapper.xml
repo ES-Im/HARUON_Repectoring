@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haruon.groupware.approval.mapper.ApprovalMapper">
+	<!-- 메인페이지  -->
+	<select id="findApprovalByMainPage" resultType="com.haruon.groupware.approval.dto.ResponseApprovalCount">
+		SELECT
+			   COUNT(CASE WHEN state = 'A01' THEN 1 END) 'a01',
+			   COUNT(CASE WHEN state = 'A02' THEN 1 END) 'a02',
+			   COUNT(CASE WHEN state = 'A03' THEN 1 END) 'a03',
+			   COUNT(CASE WHEN state = 'A04' THEN 1 END) 'a04'
+		  FROM approval a
+	   	 inner join draft d
+			   on a.dra_no = d.dra_no
+		 where d.emp_no = #{empNo}
+	</select>
+	<!-- 참조자 추가 -->
+	<insert id="saveApprovalReference" parameterType="com.haruon.groupware.approval.entity.ReferEntity">
+		insert into refer(
+			  app_no
+			, emp_no
+		) values (
+			  #{appNo}
+			, #{refNo}
+		)
+	</insert>
+	<!-- 결재 첨부파일 -->
+	<insert id="saveDraftFileByUser" parameterType="com.haruon.groupware.approval.entity.DraftFileEntity">
+		insert into draft_file(
+			  dra_no
+			, origin_name
+			, file_name
+			, ext
+			, kind
+			, size
+			
+		) values (
+			  #{draNo}
+			, #{originName}
+			, #{fileName}
+			, #{ext}
+			, #{kind}
+			, #{size}
+			
+		)
+	</insert>
+	<!-- 결재양식 -->
+	<insert id="saveApprovalByUser" parameterType="com.haruon.groupware.approval.dto.RequestApproval"
+			useGeneratedKeys="true" keyProperty="appNo">
+		insert into approval(
+			  dra_no
+			, mid_app
+			, final_app
+		) values (
+			  #{draNo}
+			, #{midAppNo}
+			, #{finalAppNo}
+		)
+	</insert>
+	 
+	<!-- 휴가 보고서 -->
+	<insert id="saveVacationByUser" parameterType="com.haruon.groupware.approval.dto.RequestApproval">
+		insert into vacation(
+			  dra_no
+			, emp_no <!-- 대체 업무자 사원번호 -->
+			, start_date
+			, finish_date
+			, kind
+			, urgent_phone
+		) values (
+			  #{draNo}
+			, #{subEmpNumber}
+			, #{vacStartDate}
+			, #{vacFinishDate}
+			, #{vacationType}
+			, #{urgentPhone}
+		)
+	</insert>
+	<!-- 매출 보고서 -->
+	<insert id="saveSalesByUser" parameterType="com.haruon.groupware.approval.dto.RequestApproval">
+		insert into sales(
+				dra_no
+			,	fra_no
+			,	ym
+			,	revenue
+		) values (
+			  #{draNo}
+			, #{fraNo}
+			, #{ym}
+			, #{revenue}
+		)
+	</insert>
+	<!-- 출장 보고서 -->
+	<insert id="saveBusinessTripByUser" parameterType="com.haruon.groupware.approval.dto.RequestApproval">
+		insert into business_trip(
+			  dra_no
+			, place
+			, start_date
+			, finish_date
+		) values (
+			  #{draNo}
+			, #{place}
+			, #{placeStartDate}
+			, #{placeEndDate}
+		)
+	</insert>
+	<!-- 기본 기안서 -->
+	<insert id="saveBasicDraftByUser" parameterType="com.haruon.groupware.approval.dto.RequestApproval" 
+			useGeneratedKeys="true" keyProperty="draNo">
+		insert into draft(
+			  emp_no
+			, kind
+			, title
+			, content
+		) values (
+			  #{empNo}
+			, #{kind}
+			, #{title}
+			, #{textContent}
+		)
+	</insert>
+	
+	
+	<!-- 부서별 직원 리스트(본인제외) -->
+	<select id="findEmpByDept" parameterType="Integer" resultType="com.haruon.groupware.approval.dto.ResponseEmployee">
+		select
+			   e.emp_no empNo
+			 , e.ename
+			 , c.descript descript
+		  from emp e
+		 inner join common_code c
+		  	   on e.location = c.common_code
+		 where e.dep_no = #{deptNo}
+	  	       and e.emp_no not in(#{empNo})
+	  	       and e.exit_date is null
+	</select>
+		
+	<select id="findByFranchise" resultType="com.haruon.groupware.approval.dto.ResponseFranchise">
+		select
+			   fra_no fraNo
+			 , fname
+		  from franchise
+		 where open_yn = 'Y'
+	</select>
+	
+	<select id="findEmpDept" parameterType="Integer" resultType="com.haruon.groupware.approval.dto.ResponseEmployee">
+		select
+			   e.emp_no empNo
+			 , e.ename
+			 , c.descript descript
+		  from emp e
+		 inner join common_code c
+		  	   on e.location = c.common_code
+		 where e.dep_no = #{deptNo}
+	  	       and e.exit_date is null
+	</select>
+	
+</mapper>

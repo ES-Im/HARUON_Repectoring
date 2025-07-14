@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haruon.groupware.meetingroom.mapper.ReservationMapper">
+
+<delete id="deleteReservation" parameterType="Integer">
+	DELETE FROM reservation
+	WHERE sch_no = #{resNo}
+</delete>
+
+<delete id="deleteMyReservation" parameterType="Integer">
+    DELETE FROM reservation 
+    WHERE res_no = #{resNo}
+</delete>
+
+ <select id="findReservationByScheduleNo" parameterType="Integer" resultType="Integer">
+    SELECT res_no
+    FROM reservation
+    WHERE sch_no = #{schNo}
+</select>
+
+<select id="revTimeList" resultType="com.haruon.groupware.common.entity.CommonCode">
+SELECT common_code  CommonCode,
+       descript
+FROM common_code 
+WHERE common_code != 'K00'
+  AND parent_code = 'K00'
+  AND common_code NOT IN (
+      SELECT rev_time
+      FROM reservation
+      WHERE mee_no = #{meeNo}
+        AND rev_date = #{revDate}
+        )
+</select> 
+<insert id="addReservation" parameterType="com.haruon.groupware.meetingroom.entity.Reservation">
+    INSERT INTO reservation (
+    mee_no,
+    rev_date,
+    rev_time,
+    sch_no,
+    emp_no,
+    content
+    )VALUES(
+    #{meeNo}, #{revDate}, #{revTime}, #{schNo}, #{empNo}, #{content}
+    )
+</insert>
+
+<select id="myReservationList" resultType="com.haruon.groupware.meetingroom.dto.MyReservationDto">
+SELECT 
+    r.res_no resNo,
+    r.mee_no meeNo,
+    r.sch_no schNo,
+    m.mname mname,
+    r.rev_date revDate,
+    r.rev_time revTime,
+    c.descript descript,
+    r.content content,
+    e.ename ename
+FROM reservation r
+INNER JOIN schedules s ON r.sch_no = s.sch_no
+INNER JOIN emp e ON r.emp_no = e.emp_no
+INNER JOIN meetingroom m ON r.mee_no = m.mee_no
+INNER JOIN common_code c ON r.rev_time = c.common_code
+WHERE r.emp_no = #{empNo}
+    AND c.parent_code = 'K00'
+ORDER BY r.rev_date DESC, r.rev_time DESC
+</select>
+
+
+<select id="countReservationsByMeeNo" resultType="int">
+    SELECT COUNT(*) 
+    FROM reservation 
+    WHERE mee_no = #{meeNo}
+</select>
+</mapper>

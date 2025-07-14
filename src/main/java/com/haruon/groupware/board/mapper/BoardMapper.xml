@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haruon.groupware.board.mapper.BoardMapper">
+	<!-- 자유 게시판 리스트 - 전체 -->
+	<select id="selectBoardList" parameterType="Map" resultType="Map">
+		 SELECT 
+	        b.boa_no boaNo
+	        , e.ename ename
+	        , b.title title
+	        , DATE_FORMAT(b.create_date, '%Y/%c/%e %H:%i') createDate
+	        , b.view_cnt viewCnt
+	        , c.cat_name catName
+	        , (SELECT COUNT(bl.like_no) FROM board_like bl WHERE bl.boa_no = b.boa_no) countLike
+	        , (SELECT COUNT(bc.com_no) FROM board_comment bc WHERE bc.boa_no = b.boa_no) countComment
+	    FROM board b
+	    INNER JOIN emp e 
+	    	ON b.emp_no = e.emp_no
+	    INNER JOIN category c 
+	    	ON b.cat_no = c.cat_no
+	    WHERE b.cat_no != 1
+	    ORDER BY b.boa_no DESC
+	</select>
+	
+	<!-- 카테고리 별 게시판 리스트 -->
+	<select id="selectBoardListByCatNo" parameterType="Map" resultType="Map">
+		 SELECT 
+			b.boa_no boaNo
+			, e.ename ename
+			, b.title
+			, DATE_FORMAT(b.create_date,'%Y/%c/%e %H:%i') createDate
+			, b.view_cnt viewCnt
+			, c.cat_name catName
+			, b.cat_no catNo
+			, (SELECT COUNT(bl.like_no) FROM board_like bl WHERE bl.boa_no = b.boa_no) countLike
+	        , (SELECT COUNT(bc.com_no) FROM board_comment bc WHERE bc.boa_no = b.boa_no) countComment
+	    FROM board b
+	    INNER JOIN emp e 
+	    	ON b.emp_no = e.emp_no
+	    INNER JOIN category c 
+	    	ON b.cat_no = c.cat_no
+	    LEFT JOIN board_like bl 
+	    	ON b.boa_no = bl.boa_no
+	    LEFT JOIN board_comment bc
+      		ON b.boa_no = bc.boa_no
+	    WHERE b.cat_no = #{catNo}
+	    GROUP BY b.boa_no, e.ename, b.title, b.create_date, b.view_cnt, c.cat_name 
+	    ORDER BY b.boa_no DESC
+	</select>
+	
+	<!-- 게시글 입력 -->
+	<insert id="insertBoard" parameterType="com.haruon.groupware.board.entity.Board" useGeneratedKeys="true" keyProperty="boaNo">
+		INSERT INTO board(
+			emp_no
+			, cat_no
+			, title
+			, content
+			, create_date
+		) VALUES (
+			#{empNo}, #{catNo}, #{title}, #{content}, NOW()
+		)
+	</insert>
+	<!-- 첨부파일 등록 -->
+	<insert id="insertBoardFile" parameterType="com.haruon.groupware.board.entity.BoardFile">
+		INSERT INTO board_file(
+			boa_no
+			, original_name
+			, file_name
+			, ext
+			, kind
+			, size
+			, create_date
+		) VALUES(
+			#{boaNo}, #{originalName}, #{fileName}, #{ext}, #{kind}, #{size}, NOW()
+		)
+	</insert>
+	
+	<!-- 글 상세 -->
+	<select id="selectBoardOne" parameterType="Integer" resultType="Map">
+		SELECT
+			b.boa_no boaNo
+			, b.emp_no empNo
+			, e.ename ename
+			, e.dep_no depNo
+			, b.cat_no catNo
+			, c.cat_name catName
+			, b.title
+			, b.content
+			, DATE_FORMAT(b.create_date,'%Y/%c/%e %H:%i') createDate
+			, DATE_FORMAT(b.update_date,'%Y/%c/%e %H:%i') updateDate
+			, b.view_cnt viewCnt
+		FROM board b
+		INNER JOIN emp e
+			ON b.emp_no = e.emp_no
+		INNER JOIN category c
+			ON b.cat_no = c.cat_no
+		WHERE boa_no = #{boaNo}
+	</select>
+	
+	<!-- 댓글 리스트 -->
+	<select id="selectCommentList" parameterType="Integer" resultType="Map">
+		SELECT
+			bc.com_no comNo
+			, bc.boa_no boaNo
+			, bc.emp_no empNo
+			, e.ename ename
+			, bc.content content
+			, DATE_FORMAT(bc.create_date,'%Y/%c/%e %H:%i') createDate
+		FROM board_comment bc
+		INNER JOIN emp e
+			ON bc.emp_no = e.emp_no
+		WHERE bc.boa_no = #{boaNo}
+		ORDER BY bc.create_date
+	</select>
+	<!-- 댓글 수 -->
+	<select id="countComment" parameterType="Integer" resultType="Integer">
+		SELECT COUNT(*)
+		FROM board_comment
+		WHERE boa_no = #{boaNo}
+	</select>
+	<!-- 추천 수 -->
+	<select id="countLike" parameterType="Integer" resultType="Integer">
+		SELECT COUNT(*)
+		FROM board_like
+		WHERE boa_no = #{boaNo}
+	</select>
+	<!-- 조회수 업데이트 -->
+	<update id="updateViewCnt" parameterType="Integer">
+		UPDATE board
+		SET view_cnt = view_cnt + 1
+		WHERE boa_no = #{boaNo}
+	</update>
+	
+	<!-- 글 추천 -->
+	<insert id="insertBoardLike" parameterType="com.haruon.groupware.board.entity.BoardLike">
+	    INSERT INTO board_like (
+	    	boa_no
+	    	, emp_no
+	    ) VALUES (
+	    	#{boaNo}
+	    	, #{empNo}
+	    )
+	</insert>
+	<!-- 글 추천 여부 확인 -->
+	<select id="checkLike" parameterType="Map" resultType="Integer">
+	    SELECT COUNT(*) 
+	    FROM board_like
+	    WHERE boa_no = #{boaNo} AND emp_no = #{empNo}
+	</select>
+	<!-- 추천 취소 -->
+	<delete id="cancelLike" parameterType="map">
+	    DELETE FROM board_like
+	    WHERE boa_no = #{boaNo} AND emp_no = #{empNo}
+	</delete>
+	
+	<!-- 댓글 입력 -->
+	<insert id="insertComment" parameterType="com.haruon.groupware.board.entity.BoardComment">
+		INSERT INTO board_comment(
+			boa_no
+			, emp_no
+			, content
+			, create_date
+		) VALUES(
+			#{boaNo}, #{empNo}, #{content}, NOW()
+		)
+	</insert>
+	<!-- 댓글 삭제 -->
+	<delete id="deleteComment" parameterType="Integer">
+		DELETE FROM board_comment
+		WHERE com_no = #{comNo}
+	</delete>
+	
+	<!-- 글 수정 -->
+	<update id="updateBoard" parameterType="Map">
+		UPDATE board
+		SET cat_no = #{catNo}
+			, title = #{title}
+			, content = #{content}
+			, update_date = NOW()
+		WHERE boa_no = #{boaNo}
+	</update>
+	<!-- 첨부파일 리스트 -->
+	<select id="selectBoardFiles" parameterType="Integer" resultType="com.haruon.groupware.board.entity.BoardFile">
+		SELECT
+			boaf_no boafNo
+			, original_name originalName
+			, file_name fileName
+			, ext
+			, kind
+			, size
+		FROM board_file
+		WHERE boa_no = #{boaNo}
+	</select>
+	<!-- 글 수정 시 첨부파일 삭제 -->
+	<select id="selectBoardFileByBoafNo" parameterType="Integer" resultType="com.haruon.groupware.board.entity.BoardFile">
+	    SELECT boaf_no boafNo
+	    		, original_name originName
+	    		, file_name fileName
+	    		, ext
+	    FROM board_file
+	    WHERE boaf_no = #{boafNo}
+	</select>
+	<delete id="deleteBoardFileByOne" parameterType="Map">
+		DELETE FROM board_file
+		WHERE boaf_no = #{boafNo}
+	</delete>
+
+	<!-- 	
+공지
+	-->
+	<!-- 공지 리스트 -->
+	<select id="selectNoticeList" parameterType="Map" resultType="Map">
+		SELECT 
+			b.boa_no boaNo
+			, e.ename ename
+			, b.title
+			, DATE_FORMAT(b.create_date,'%Y/%c/%e %H:%i') createDate
+			, b.view_cnt viewCnt
+			, b.cat_no catNo
+			, COUNT(bc.com_no) countComment
+		FROM board b
+		INNER JOIN emp e
+			ON b.emp_no = e.emp_no
+		LEFT JOIN board_comment bc
+			ON b.boa_no = bc.boa_no
+		WHERE b.cat_no = 1
+		GROUP BY b.boa_no
+		ORDER BY b.boa_no DESC
+	</select>
+	
+	<!-- 공지 입력 -->
+	<insert id="insertNotice" parameterType="com.haruon.groupware.board.entity.Board" useGeneratedKeys="true" keyProperty="boaNo">
+		INSERT INTO board(
+			emp_no
+			, cat_no
+			, title
+			, content
+			, create_date
+		) VALUES (
+			#{empNo}, 1, #{title}, #{content}, NOW()
+		)
+	</insert>
+	
+	<!-- 공지 수정 -->
+	<update id="updateNotice" parameterType="Map">
+		UPDATE board
+		SET cat_no = 1
+			, title = #{title}
+			, content = #{content}
+			, update_date = NOW()
+		WHERE boa_no = #{boaNo}
+	</update>
+	
+	<!-- (카테고리 삭제) board 테이블에서 특정 cat_no를 기타 카테고리로 업데이트 -->
+	<update id="updateCatNo" parameterType="map">
+		UPDATE board  
+		SET cat_no = #{newCatNo} 
+		WHERE cat_no = #{catNo}
+	</update>
+	
+	<!-- 글 삭제 -->
+	<delete id="deleteBoard" parameterType="Integer">
+		DELETE FROM board
+		WHERE boa_no = #{boaNo}
+	</delete>
+	<!-- 첨부파일 삭제 -->
+	<delete id="deleteBoardFile" parameterType="Integer">
+		DELETE FROM board_file
+		WHERE boa_no = #{boaNo}
+	</delete>
+	<!-- 글 삭제 전 댓글 삭제 -->
+	<delete id="deleteCommentByBoaNo" parameterType="Integer">
+		DELETE FROM board_comment
+		WHERE boa_no = #{boaNo}
+	</delete>
+	<!-- 글 삭제 전 추천 삭제 -->
+	<delete id="deleteLike" parameterType="Integer">
+		DELETE FROM board_like
+		WHERE boa_no = #{boaNo}
+	</delete>
+	
+		
+	<!-- 홈 -->
+	<select id="selectBoardHome" parameterType="Map" resultType="Map">
+		SELECT 
+			b.boa_no boaNo
+			, e.ename ename
+			, b.title
+			, c.cat_name catName
+		FROM board b
+		INNER JOIN emp e
+			ON b.emp_no = e.emp_no
+		INNER JOIN category c
+			ON b.cat_no = c.cat_no
+		WHERE b.cat_no != 1
+		GROUP BY b.boa_no, e.ename, b.title, b.create_date, b.view_cnt, c.cat_name 
+		ORDER BY b.boa_no DESC
+		LIMIT 5
+	</select>
+	
+	<select id="selectNoticeHome" parameterType="Map" resultType="Map">
+		SELECT 
+			b.boa_no boaNo
+			, e.ename ename
+			, b.title
+		FROM board b
+		INNER JOIN emp e
+			ON b.emp_no = e.emp_no
+		WHERE b.cat_no = 1
+		ORDER BY b.boa_no DESC
+		LIMIT 5
+	</select>
+</mapper>

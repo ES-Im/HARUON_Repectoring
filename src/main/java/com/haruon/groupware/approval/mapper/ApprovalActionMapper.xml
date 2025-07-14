@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haruon.groupware.approval.mapper.ApprovalActionMapper">
+	<!-- 사용한 연차 갯수 가져오기 -->
+	<select id="findUsedLeave" parameterType="Integer">
+		select used_leave
+		  from emp
+		 where emp_no = #{empNo}
+	</select>
+	<!-- 휴가 연차 갯수 가져오기 -->
+	<select id="findTotalLeave" parameterType="Integer">
+		select total_leave
+		  from emp
+		 where emp_no = #{empNo}
+	</select>
+	<!-- 휴가 연차 차감 -->
+	<update id="updateTotalLeave">
+		update emp 
+		set used_leave =#{leaveDay}
+		where emp_no = #{empNo}
+	</update>
+	<!-- 일정 추가용 휴가결재 데이터 뽑기 -->
+	<select id="findByVacation" parameterType="Integer" resultType="com.haruon.groupware.approval.dto.ResponseVacation">
+		select
+			   v.start_date startDate
+			 , d.emp_no empNo
+			 , v.finish_date finishDate
+			 , v.kind kind
+			 , d.title title
+			 , d.content content
+		  from vacation v
+		 inner join draft d
+		 	   on v.dra_no = d.dra_no
+		 where v.dra_no = #{draNo}
+	</select>
+	<!-- 일정 추가용 출장결재 데이터 뽑기 -->
+	<select id="findByBusinessTrip" parameterType="Integer" resultType="com.haruon.groupware.approval.dto.ResponseBusinessTrip">
+		select
+			   d.emp_no empNo
+			 , b.place place
+			 , b.start_date startDate
+			 , b.finish_date finishDate
+			 , d.title title
+			 , d.content content
+		  from business_trip b
+		 inner join draft d
+			   on b.dra_no = d.dra_no 
+		 where b.dra_no = #{draNo}
+	</select>
+	<!-- 중간결재자 승인 -->
+	<update id="updateMidApproval" parameterType="Integer">
+		update approval
+		   set state = 'A02'
+		 where dra_no = #{draNo}
+	</update>
+	
+	<!-- 최종결재자 승인 -->
+	<update id="updateFinalApproval" parameterType="Integer">
+		update approval
+		   set state = 'A03'
+		 where dra_no = #{draNo}
+	</update>
+	
+	<!-- 사인 이미지 검사 -->
+	<select id="findSignByEmpNo" parameterType="Integer">
+		select count(*)
+		  from sign_file
+		 where emp_no = #{empNo} 
+	</select>
+	<!-- 중간 결재자 유효성 검사 -->
+	<select id="findMidApprovalByEmpNo" parameterType="Integer" resultType="com.haruon.groupware.approval.entity.ApprovalEntity">
+		select
+			   mid_app midApp
+		  from approval
+		 where mid_app = #{empNo}
+		   and dra_no = #{draNo}
+	</select>
+	<!-- 최종 결재자 유효성 검사 -->
+	<select id="findFinalApprovalByEmpNo" parameterType="Integer" resultType="com.haruon.groupware.approval.entity.ApprovalEntity">
+		select
+			   final_app finalApp
+		  from approval
+		 where final_app = #{empNo}
+	 	   and dra_no = #{draNo}
+	</select>
+	<!-- 반려 사유 유효성 검사 결재자의 empNo 을 가져옴 -->
+	<select id="findRejectByEmpNo" parameterType="Integer" resultType="com.haruon.groupware.user.entity.EmpEntity">
+		select
+			   case
+			   when mid_app = #{empNo} then mid_app
+			   when final_app = #{empNo} then final_app
+			   else null
+			   end empNo
+		  from approval
+		 where dra_no = #{draNo}
+	</select>
+	<!-- 반려 사유 입력 -->
+	<update id="saveRejectDescript" parameterType="com.haruon.groupware.approval.entity.ApprovalEntity">
+		update approval
+		   set reason_denial = #{reasonDenial}
+		     , state = 'A04'
+		 where dra_no = #{draNo}
+	</update>
+</mapper>
