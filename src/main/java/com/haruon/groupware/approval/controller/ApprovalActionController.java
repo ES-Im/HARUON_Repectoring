@@ -31,6 +31,7 @@ public class ApprovalActionController {
 			redirectAttributes.addFlashAttribute("url", "/home");
 			return "redirect:/draft/" + type + "/detail/" + draNo;
 		}
+
 		log.debug("description = {} , draNo = {} ", reasonDenial, draNo);
 		int rejectDescription = approvalActionService.getRejectDescription(draNo, reasonDenial);
 		if (rejectDescription == 1) {
@@ -45,7 +46,7 @@ public class ApprovalActionController {
 	public String finalApproval(@PathVariable String type, @PathVariable int draNo, RedirectAttributes redirectAttributes) {
 		// 유효성 검사
 		int findSignByEmpNo = approvalActionService.getFindSignByEmpNo();
-		log.debug("findSignByEmpNo = {}", findSignByEmpNo);
+		//log.debug("findSignByEmpNo = {}", findSignByEmpNo);
 		if (findSignByEmpNo != 1) {
 			redirectAttributes.addFlashAttribute("msg", "전자 서명을 먼저 등록해주세요");
 			redirectAttributes.addFlashAttribute("url", "/myInfo");

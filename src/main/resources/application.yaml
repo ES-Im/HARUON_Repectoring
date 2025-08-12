@@ -24,6 +24,7 @@ logging:
       haruon:
         groupware: debug
 
+debug: true
 
 
 
